@@ -8,6 +8,9 @@ from colorizator import MangaColorizator
 from upscalator import MangaUpscaler
 from utils.utils import distance_from_grayscale, save_image, clear_torch_cache
 
+def make_divisible_by_32(n):
+    return (n + 31) // 32 * 32  # round up to nearest multiple of 32
+
 def process_image(image_path, output_folder, colorizer, upscaler, denoiser, config):
     image_name = os.path.basename(image_path)
     pil_img = Image.open(image_path).convert("RGB")
@@ -26,10 +29,17 @@ def process_image(image_path, output_folder, colorizer, upscaler, denoiser, conf
     if config.colorize:
         if config.colorized_image_size is None:
             img_width = pil_img.width
-            print(f"[*] Auto-detected width for {image_name}: {img_width}")
-            colorizer.set_image((image.astype('float32') / 255), img_width)
+            adjusted_width = make_divisible_by_32(img_width)
+            if adjusted_width != img_width:
+                print(f"[*] Auto-detected width for {image_name}: {img_width} -> adjusted to {adjusted_width}")
+            else:
+                print(f"[*] Auto-detected width for {image_name}: {img_width} (already divisible by 32)")
+            colorizer.set_image((image.astype('float32') / 255), adjusted_width)
         else:
-            colorizer.set_image((image.astype('float32') / 255), config.colorized_image_size)
+            adjusted_width = make_divisible_by_32(config.colorized_image_size)
+            print(f"[*] Using provided width: {config.colorized_image_size} -> adjusted to {adjusted_width}")
+            colorizer.set_image((image.astype('float32') / 255), adjusted_width)
+
         print(f"[*] Colorizing {image_name}...")
         image = colorizer.colorize()
 
